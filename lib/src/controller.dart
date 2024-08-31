@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/widgets.dart';
 
 import 'models/match_target_item.dart';
@@ -35,7 +36,7 @@ import 'models/match_target_item.dart';
 /// {@end-tool}
 class RichTextController extends TextEditingController {
   final List<MatchTargetItem> targetMatches;
-  final Function(List<String> match) onMatch;
+  final Function(List<String> match)? onMatch;
   final Function(List<Map<String, List<int>>>)? onMatchIndex;
   final bool? deleteOnBack;
   //
@@ -60,7 +61,7 @@ class RichTextController extends TextEditingController {
   RichTextController({
     super.text,
     required this.targetMatches,
-    required this.onMatch,
+    this.onMatch,
     this.onMatchIndex,
     this.deleteOnBack = false,
     this.regExpCaseSensitive = true,
@@ -82,10 +83,7 @@ class RichTextController extends TextEditingController {
 
   /// Builds [TextSpan] from current editing value.
   @override
-  TextSpan buildTextSpan(
-      {required BuildContext context,
-      TextStyle? style,
-      required bool withComposing}) {
+  TextSpan buildTextSpan({required BuildContext context, TextStyle? style, required bool withComposing}) {
     //
     List<TextSpan> children = [];
     final matches = <String>{};
@@ -97,23 +95,17 @@ class RichTextController extends TextEditingController {
       String b = target.allowInlineMatching ? '' : r'\b';
       //
       if (target.text != null) {
-        stringItemText =
-            '${stringItemText.isEmpty ? "" : "$stringItemText|"}$b${target.text}';
+        stringItemText = '${stringItemText.isEmpty ? "" : "$stringItemText|"}$b${target.text}';
       }
       if (target.regex != null) {
-        regItemText =
-            '${regItemText.isEmpty ? "" : "$regItemText|"}$b${target.regex!.pattern}';
+        regItemText = '${regItemText.isEmpty ? "" : "$regItemText|"}$b${target.regex!.pattern}';
       }
       //
     }
 
     // combined regex!
-    RegExp allRegex = RegExp(
-        (stringItemText.isEmpty ? '' : '$stringItemText|') + regItemText,
-        multiLine: regExpMultiLine,
-        caseSensitive: regExpCaseSensitive,
-        dotAll: regExpDotAll,
-        unicode: regExpUnicode);
+    RegExp allRegex = RegExp((stringItemText.isEmpty ? '' : '$stringItemText|') + regItemText,
+        multiLine: regExpMultiLine, caseSensitive: regExpCaseSensitive, dotAll: regExpDotAll, unicode: regExpUnicode);
     //
     text.splitMapJoin(
       allRegex,
@@ -132,9 +124,7 @@ class RichTextController extends TextEditingController {
           matchedItem = targetMatches.firstWhere((r) {
             if (r.text != null) {
               // Equality judgment is used to prevent string rules from matching results obtained from Regex.
-              return regExpCaseSensitive
-                  ? r.text == mTxt
-                  : r.text!.toLowerCase() == mTxt.toLowerCase();
+              return regExpCaseSensitive ? r.text == mTxt : r.text!.toLowerCase() == mTxt.toLowerCase();
             } else {
               return r.regex!.allMatches(mTxt).isNotEmpty;
             }
@@ -142,6 +132,7 @@ class RichTextController extends TextEditingController {
         } catch (_) {}
 
         //
+
         if (deleteOnBack!) {
           if ((isBack(text, _lastValue) && m.end == selection.baseOffset)) {
             WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -157,6 +148,7 @@ class RichTextController extends TextEditingController {
               TextSpan(
                 text: mTxt,
                 style: matchedItem?.style ?? style,
+                recognizer: generateGestureDetectorIfNeeded(matchedText: mTxt, matcher: matchedItem),
               ),
             );
           }
@@ -165,6 +157,7 @@ class RichTextController extends TextEditingController {
             TextSpan(
               text: mTxt,
               style: matchedItem?.style ?? style,
+              recognizer: generateGestureDetectorIfNeeded(matchedText: mTxt, matcher: matchedItem),
             ),
           );
         }
@@ -174,7 +167,7 @@ class RichTextController extends TextEditingController {
           onMatchIndex!(matchIndex);
         }
 
-        return (onMatch(List<String>.unmodifiable(matches)) ?? '');
+        return (onMatch?.call(List<String>.unmodifiable(matches)) ?? '');
       },
     );
 
@@ -193,5 +186,13 @@ class RichTextController extends TextEditingController {
       return compactMatch;
     }
     return null;
+  }
+
+  TapGestureRecognizer? generateGestureDetectorIfNeeded({required String matchedText, MatchTargetItem? matcher}) {
+    TapGestureRecognizer? detector;
+    if (matcher?.onTap != null) {
+      detector = TapGestureRecognizer()..onTap = () => matcher!.onTap!(matchedText);
+    }
+    return detector;
   }
 }
