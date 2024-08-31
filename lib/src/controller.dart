@@ -36,7 +36,7 @@ import 'models/match_target_item.dart';
 /// {@end-tool}
 class RichTextController extends TextEditingController {
   final List<MatchTargetItem> targetMatches;
-  final Function(List<String> match) onMatch;
+  final Function(List<String> match)? onMatch;
   final Function(List<Map<String, List<int>>>)? onMatchIndex;
   final bool? deleteOnBack;
   //
@@ -61,7 +61,7 @@ class RichTextController extends TextEditingController {
   RichTextController({
     super.text,
     required this.targetMatches,
-    required this.onMatch,
+    this.onMatch,
     this.onMatchIndex,
     this.deleteOnBack = false,
     this.regExpCaseSensitive = true,
@@ -148,7 +148,7 @@ class RichTextController extends TextEditingController {
               TextSpan(
                 text: mTxt,
                 style: matchedItem?.style ?? style,
-                recognizer: generateGestureDetectorIfNeeded(matcher: matchedItem, matchedText: mTxt),
+                recognizer: generateGestureDetectorIfNeeded(matchedText: mTxt, matcher: matchedItem),
               ),
             );
           }
@@ -157,7 +157,7 @@ class RichTextController extends TextEditingController {
             TextSpan(
               text: mTxt,
               style: matchedItem?.style ?? style,
-              recognizer: generateGestureDetectorIfNeeded(matcher: matchedItem, matchedText: mTxt),
+              recognizer: generateGestureDetectorIfNeeded(matchedText: mTxt, matcher: matchedItem),
             ),
           );
         }
@@ -167,7 +167,7 @@ class RichTextController extends TextEditingController {
           onMatchIndex!(matchIndex);
         }
 
-        return (onMatch(List<String>.unmodifiable(matches)) ?? '');
+        return (onMatch?.call(List<String>.unmodifiable(matches)) ?? '');
       },
     );
 
