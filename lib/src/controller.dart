@@ -191,7 +191,7 @@ class RichTextController extends TextEditingController {
   TapGestureRecognizer? generateGestureDetectorIfNeeded({required String matchedText, MatchTargetItem? matcher}) {
     TapGestureRecognizer? detector;
     if (matcher?.onTap != null) {
-      final tapGestureDetector = TapGestureRecognizer()..onTap = () => print('USO');
+      detector = TapGestureRecognizer()..onTap = () => matcher!.onTap!(matchedText);
     }
     return detector;
   }
