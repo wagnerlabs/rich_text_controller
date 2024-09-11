@@ -40,6 +40,8 @@ class RichTextController extends TextEditingController {
   final Function(List<Map<String, List<int>>>)? onMatchIndex;
   final bool? deleteOnBack;
   //
+  bool enabled = true;
+
   String _lastValue = "";
 
   /// controls the caseSensitive property of the full [RegExp] used to pattern match
@@ -84,65 +86,75 @@ class RichTextController extends TextEditingController {
   /// Builds [TextSpan] from current editing value.
   @override
   TextSpan buildTextSpan({required BuildContext context, TextStyle? style, required bool withComposing}) {
-    //
     List<TextSpan> children = [];
-    final matches = <String>{};
-    List<Map<String, List<int>>> matchIndex = [];
-    // combined regex!
-    String stringItemText = '';
-    String regItemText = '';
-    for (MatchTargetItem target in targetMatches) {
-      String b = target.allowInlineMatching ? '' : r'\b';
-      //
-      if (target.text != null) {
-        stringItemText = '${stringItemText.isEmpty ? "" : "$stringItemText|"}$b${target.text}';
-      }
-      if (target.regex != null) {
-        regItemText = '${regItemText.isEmpty ? "" : "$regItemText|"}$b${target.regex!.pattern}';
-      }
-      //
-    }
 
-    // combined regex!
-    RegExp allRegex = RegExp((stringItemText.isEmpty ? '' : '$stringItemText|') + regItemText,
-        multiLine: regExpMultiLine, caseSensitive: regExpCaseSensitive, dotAll: regExpDotAll, unicode: regExpUnicode);
-    //
-    text.splitMapJoin(
-      allRegex,
-      onNonMatch: (String span) {
-        children.add(TextSpan(text: span, style: style));
-        return span.toString();
-      },
-      onMatch: (Match m) {
-        if (m[0] == null) return '';
-
-        String mTxt = m[0]!;
-        matches.add(mTxt);
+    if (enabled) {
+      final matches = <String>{};
+      List<Map<String, List<int>>> matchIndex = [];
+      // combined regex!
+      String stringItemText = '';
+      String regItemText = '';
+      for (MatchTargetItem target in targetMatches) {
+        String b = target.allowInlineMatching ? '' : r'\b';
         //
-        MatchTargetItem? matchedItem;
-        try {
-          matchedItem = targetMatches.firstWhere((r) {
-            if (r.text != null) {
-              // Equality judgment is used to prevent string rules from matching results obtained from Regex.
-              return regExpCaseSensitive ? r.text == mTxt : r.text!.toLowerCase() == mTxt.toLowerCase();
-            } else {
-              return r.regex!.allMatches(mTxt).isNotEmpty;
-            }
-          });
-        } catch (_) {}
-
+        if (target.text != null) {
+          stringItemText = '${stringItemText.isEmpty ? "" : "$stringItemText|"}$b${target.text}';
+        }
+        if (target.regex != null) {
+          regItemText = '${regItemText.isEmpty ? "" : "$regItemText|"}$b${target.regex!.pattern}';
+        }
         //
+      }
 
-        if (deleteOnBack!) {
-          if ((isBack(text, _lastValue) && m.end == selection.baseOffset)) {
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              children.removeWhere((element) => element.text! == text);
-              text = text.replaceRange(m.start, m.end, "");
-              selection = selection.copyWith(
-                baseOffset: m.end - (m.end - m.start),
-                extentOffset: m.end - (m.end - m.start),
-              );
+      // combined regex!
+      RegExp allRegex = RegExp((stringItemText.isEmpty ? '' : '$stringItemText|') + regItemText,
+          multiLine: regExpMultiLine, caseSensitive: regExpCaseSensitive, dotAll: regExpDotAll, unicode: regExpUnicode);
+      //
+      text.splitMapJoin(
+        allRegex,
+        onNonMatch: (String span) {
+          children.add(TextSpan(text: span, style: style));
+          return span.toString();
+        },
+        onMatch: (Match m) {
+          if (m[0] == null) return '';
+
+          String mTxt = m[0]!;
+          matches.add(mTxt);
+          //
+          MatchTargetItem? matchedItem;
+          try {
+            matchedItem = targetMatches.firstWhere((r) {
+              if (r.text != null) {
+                // Equality judgment is used to prevent string rules from matching results obtained from Regex.
+                return regExpCaseSensitive ? r.text == mTxt : r.text!.toLowerCase() == mTxt.toLowerCase();
+              } else {
+                return r.regex!.allMatches(mTxt).isNotEmpty;
+              }
             });
+          } catch (_) {}
+
+          //
+
+          if (deleteOnBack!) {
+            if ((isBack(text, _lastValue) && m.end == selection.baseOffset)) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                children.removeWhere((element) => element.text! == text);
+                text = text.replaceRange(m.start, m.end, "");
+                selection = selection.copyWith(
+                  baseOffset: m.end - (m.end - m.start),
+                  extentOffset: m.end - (m.end - m.start),
+                );
+              });
+            } else {
+              children.add(
+                TextSpan(
+                  text: mTxt,
+                  style: matchedItem?.style ?? style,
+                  recognizer: generateGestureDetectorIfNeeded(matchedText: mTxt, matcher: matchedItem),
+                ),
+              );
+            }
           } else {
             children.add(
               TextSpan(
@@ -152,24 +164,18 @@ class RichTextController extends TextEditingController {
               ),
             );
           }
-        } else {
-          children.add(
-            TextSpan(
-              text: mTxt,
-              style: matchedItem?.style ?? style,
-              recognizer: generateGestureDetectorIfNeeded(matchedText: mTxt, matcher: matchedItem),
-            ),
-          );
-        }
-        final resultMatchIndex = matchValueIndex(m);
-        if (resultMatchIndex != null && onMatchIndex != null) {
-          matchIndex.add(resultMatchIndex);
-          onMatchIndex!(matchIndex);
-        }
+          final resultMatchIndex = matchValueIndex(m);
+          if (resultMatchIndex != null && onMatchIndex != null) {
+            matchIndex.add(resultMatchIndex);
+            onMatchIndex!(matchIndex);
+          }
 
-        return (onMatch?.call(List<String>.unmodifiable(matches)) ?? '');
-      },
-    );
+          return (onMatch?.call(List<String>.unmodifiable(matches)) ?? '');
+        },
+      );
+    } else {
+      children.add(TextSpan(text: text, style: style));
+    }
 
     _lastValue = text;
     return TextSpan(style: style, children: children);
